@@ -35,8 +35,7 @@ grey = cv2.cvtColor(image_data.image_data, cv2.COLOR_BGR2GRAY)
 input_array = cv2.resize(grey, (28, 28), interpolation=cv2.INTER_AREA)
 
 
-# --------------------------------- INFERENCE -------------------------------- #
-
+# -------------------------- Loading trained weights ------------------------- #
 data = np.load("model_parameters.npz")
 
 W1 = data["W1"]
@@ -66,6 +65,7 @@ def softmax(z: np.ndarray) -> np.ndarray:
     return np.exp(z) / np.sum(np.exp(z))
 
 
+# ------------------------------ DENSE LAYER --------------------------------- #
 def dense(
     A_in: np.ndarray,  # (ndarray (m,n))
     W: np.ndarray,  # (ndarray (n,j))
@@ -85,7 +85,7 @@ def dense(
 
     return g(A_in @ W + B)
 
-
+# ---------------------- Contructing the Neural Network ---------------------- #
 def sequential(X, W1, b1, W2, b2, W3, b3, W4, b4):
     a1 = dense(X, W1, b1, relu)
     a2 = dense(a1, W2, b2, relu)
@@ -100,7 +100,7 @@ def predict(X):
     score = np.max(pred_array)
     return (pred_num, score, pred_array)
 
-
+# --------------------------------- Inference -------------------------------- #
 X = (input_array / 255).reshape(1, -1)
 
 predicted_number, score, prediction_array = predict(X)
@@ -115,3 +115,6 @@ with right:
     st.markdown(f"""# Predicted number: {predicted_number}
 # Confidence: {score * 100: .3f} % """)
     st.plotly_chart(fig)
+# ---------------------------------------------------------------------------- #
+#                                      END                                     #
+# ---------------------------------------------------------------------------- #
