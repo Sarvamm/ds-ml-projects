@@ -37,7 +37,7 @@ with left:
 # ---------------------------------------------------------------------------- #
 @st.cache_resource
 def load_keras_model():
-    return load_model("Dense_Model.keras")
+    return load_model("./Dense_Model.keras")
 
 model = load_keras_model()
 
