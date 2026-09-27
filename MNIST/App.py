@@ -1,3 +1,4 @@
+import os
 import streamlit as st
 from streamlit_drawable_canvas import st_canvas
 import numpy as np
@@ -37,7 +38,17 @@ with left:
 # ---------------------------------------------------------------------------- #
 @st.cache_resource
 def load_keras_model():
-    return load_model("./Dense_Model.keras")
+    # Fixes: FileNotFoundError on Streamlit Cloud by deriving absolute path
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    model_path = os.path.join(base_dir, "Dense_Model.keras")
+
+    if not os.path.exists(model_path):
+        root_files = os.listdir(base_dir)
+        raise FileNotFoundError(
+            f"Model not found at: {model_path}. Files present in directory: {root_files}"
+        )
+
+    return load_model(model_path)
 
 model = load_keras_model()
 
@@ -54,7 +65,7 @@ def predict(X):
 # ---------------------------------------------------------------------------- #
 #                             INFERENCE & OUTPUT                               #
 # ---------------------------------------------------------------------------- #
-# Fixes: cv2.cvtColor assertion error by ensuring image array is not empty
+# Fixes: cv2.cvtColor assertion error by ensuring image array exists and is non-empty
 if (
     image_data is not None 
     and image_data.image_data is not None 
@@ -66,7 +77,7 @@ if (
     # Fixes: st_canvas produces 4-channel RGBA data
     grey = cv2.cvtColor(raw_img, cv2.COLOR_RGBA2GRAY)
 
-    # Check if user has actually drawn something (non-black canvas)
+    # Only run prediction if the user has actually drawn something
     if np.any(grey > 0):
         # Resize to model input size (28x28)
         input_array = cv2.resize(grey, (28, 28), interpolation=cv2.INTER_AREA)
