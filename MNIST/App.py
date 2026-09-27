@@ -1,6 +1,3 @@
-# ---------------------------------------------------------------------------- #
-#                                    IMPORTS                                   #
-# ---------------------------------------------------------------------------- #
 import streamlit as st
 from streamlit_drawable_canvas import st_canvas
 import numpy as np
@@ -12,15 +9,18 @@ from plotly.subplots import make_subplots
 from sklearn.preprocessing import MinMaxScaler
 
 # ---------------------------------------------------------------------------- #
-st.set_page_config(layout="wide")
+#                                 PAGE CONFIG                                  #
+# ---------------------------------------------------------------------------- #
+st.set_page_config(layout="wide", page_title="Digit Recognizer")
 st.title("Draw a number (0-9)")
-st.markdown("""
-Draw on the canvas, The computer will guess what your number is 
-""")
+st.markdown("Draw on the canvas, and the computer will guess what your number is.")
+
 left, right = st.columns(2)
 
+# ---------------------------------------------------------------------------- #
+#                                CANVAS SETUP                                  #
+# ---------------------------------------------------------------------------- #
 with left:
-    # Create a canvas component
     image_data = st_canvas(
         stroke_width=28,
         fill_color="#ffffff",
@@ -29,45 +29,70 @@ with left:
         height=280,
         width=280,
         key="canvas",
-        return_image_data=True,
+        return_image_data=True,  # Fixes: RuntimeError (image_data not requested)
     )
 
+# ---------------------------------------------------------------------------- #
+#                            MODEL & PREDICTION                                #
+# ---------------------------------------------------------------------------- #
+@st.cache_resource
+def load_keras_model():
+    return load_model("Dense_Model.keras")
 
-grey = cv2.cvtColor(image_data.image_data, cv2.COLOR_BGR2GRAY)
-
-input_array = cv2.resize(grey, (28, 28), interpolation=cv2.INTER_AREA)
-
-model = load_model("Dense_Model.keras")
-
+model = load_keras_model()
 
 def predict(X):
     pred_array = (
         MinMaxScaler()
-        .fit_transform(model.predict(X).reshape(-1, 1))
-        .reshape(
-            -1,
-        )
+        .fit_transform(model.predict(X, verbose=0).reshape(-1, 1))
+        .reshape(-1)
     )
     pred_num = np.argmax(pred_array)
     score = np.max(pred_array)
     return (pred_num, score, pred_array)
 
-
-# --------------------------------- Inference -------------------------------- #
-X = (input_array / 255).reshape(1, -1)
-
-predicted_number, score, prediction_array = predict(X)
-
-
-fig = make_subplots(1, 2)
-fig.add_trace(px.histogram(x=range(10), y=prediction_array, nbins=20).data[0], 1, 1)
-fig.add_trace(px.imshow(input_array[::-1,]).data[0], 1, 2)
-fig.update_layout(height=500, width=1000)
-
-with right:
-    st.markdown(f"""# Predicted number: {predicted_number}
-# Confidence: {score * 100: .3f} % """)
-    st.plotly_chart(fig)
 # ---------------------------------------------------------------------------- #
-#                                      END                                     #
+#                             INFERENCE & OUTPUT                               #
 # ---------------------------------------------------------------------------- #
+# Fixes: cv2.cvtColor assertion error by ensuring image array is not empty
+if (
+    image_data is not None 
+    and image_data.image_data is not None 
+    and image_data.image_data.size > 0
+):
+    # Ensure correct data type (uint8)
+    raw_img = image_data.image_data.astype("uint8")
+
+    # Fixes: st_canvas produces 4-channel RGBA data
+    grey = cv2.cvtColor(raw_img, cv2.COLOR_RGBA2GRAY)
+
+    # Check if user has actually drawn something (non-black canvas)
+    if np.any(grey > 0):
+        # Resize to model input size (28x28)
+        input_array = cv2.resize(grey, (28, 28), interpolation=cv2.INTER_AREA)
+
+        # Preprocess array
+        X = (input_array / 255.0).reshape(1, -1)
+
+        # Run model inference
+        predicted_number, score, prediction_array = predict(X)
+
+        # Plot confidence histogram and image preview
+        fig = make_subplots(1, 2)
+        fig.add_trace(
+            px.histogram(x=list(range(10)), y=prediction_array, nbins=20).data[0], 
+            1, 1
+        )
+        fig.add_trace(px.imshow(input_array[::-1, :]).data[0], 1, 2)
+        fig.update_layout(height=500, width=1000)
+
+        with right:
+            st.markdown(f"# Predicted number: {predicted_number}")
+            st.markdown(f"# Confidence: {score * 100:.3f} %")
+            st.plotly_chart(fig, use_container_width=True)
+    else:
+        with right:
+            st.info("Draw a digit on the canvas to see predictions.")
+else:
+    with right:
+        st.info("Draw a digit on the canvas to see predictions.")
