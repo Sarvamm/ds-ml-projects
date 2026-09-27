@@ -1,7 +1,7 @@
 streamlit
 streamlit-drawable-canvas
 numpy
-opencv-python
+opencv-python-headless
 tensorflow
 plotly
 scikit-learn
