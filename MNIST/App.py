@@ -29,6 +29,7 @@ with left:
         height=280,
         width=280,
         key="canvas",
+        return_image_data=True,
     )
 
 
